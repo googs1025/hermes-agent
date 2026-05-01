@@ -429,10 +429,68 @@ def auth_reset_command(args) -> None:
     print(f"Reset status on {count} {provider} credentials")
 
 
+def _iter_known_providers() -> list[str]:
+    """Return the sorted union of providers that ``get_auth_status`` understands.
+
+    Combines :data:`PROVIDER_REGISTRY` (api-key + aws-sdk providers, plus the
+    OAuth-only ones already registered there) with ``spotify``, which is the
+    only special-cased provider not in the registry.
+    """
+    return sorted(set(PROVIDER_REGISTRY.keys()) | {"spotify"})
+
+
+def _summarize_status(provider: str, status: dict) -> dict:
+    """Pick the user-relevant fields out of a raw ``get_auth_status`` payload."""
+    summary = {
+        "provider": provider,
+        "logged_in": bool(status.get("logged_in")),
+    }
+    for key in ("auth_type", "api_base_url", "expires_at", "error"):
+        value = status.get(key)
+        if value:
+            summary[key] = value
+    return summary
+
+
+def _print_auth_status_all(json_out: bool) -> None:
+    rows = [
+        _summarize_status(provider, auth_mod.get_auth_status(provider))
+        for provider in _iter_known_providers()
+    ]
+    if json_out:
+        import json as _json
+
+        print(_json.dumps(rows, indent=2))
+        return
+
+    from tabulate import tabulate
+
+    table_rows = [
+        [
+            row["provider"],
+            "logged in" if row["logged_in"] else "logged out",
+            row.get("expires_at")
+            or row.get("api_base_url")
+            or row.get("error")
+            or row.get("auth_type")
+            or "",
+        ]
+        for row in rows
+    ]
+    print(tabulate(table_rows, headers=["provider", "status", "detail"]))
+
+
 def auth_status_command(args) -> None:
+    if getattr(args, "all", False):
+        _print_auth_status_all(json_out=getattr(args, "json", False))
+        return
+
     provider = _normalize_provider(getattr(args, "provider", "") or "")
     if not provider:
-        raise SystemExit("Provider is required. Example: `hermes auth status spotify`.")
+        raise SystemExit(
+            "Provider is required. Example: `hermes auth status spotify` "
+            "(or `hermes auth status --all` for an aggregated view)."
+        )
     status = auth_mod.get_auth_status(provider)
     if not status.get("logged_in"):
         reason = status.get("error")

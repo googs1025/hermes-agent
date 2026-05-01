@@ -8483,8 +8483,21 @@ def main():
         "reset", help="Clear exhaustion status for all credentials for a provider"
     )
     auth_reset.add_argument("provider", help="Provider id")
-    auth_status = auth_subparsers.add_parser("status", help="Show auth status for a provider")
-    auth_status.add_argument("provider", help="Provider id")
+    auth_status = auth_subparsers.add_parser(
+        "status",
+        help="Show auth status for a provider (or all with --all)",
+    )
+    auth_status.add_argument(
+        "provider", nargs="?", help="Provider id (omit when using --all)"
+    )
+    auth_status.add_argument(
+        "--all",
+        action="store_true",
+        help="Show aggregated status for all known providers",
+    )
+    auth_status.add_argument(
+        "--json", action="store_true", help="Emit machine-readable JSON"
+    )
     auth_logout = auth_subparsers.add_parser("logout", help="Log out a provider and clear stored auth state")
     auth_logout.add_argument("provider", help="Provider id")
     auth_spotify = auth_subparsers.add_parser("spotify", help="Authenticate Hermes with Spotify via PKCE")
